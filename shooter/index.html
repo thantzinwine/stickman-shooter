@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Stickman Shooter</title>
+    <style>
+        html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; background: #000; }
+        body { touch-action: none; -webkit-user-select: none; user-select: none; font-family: 'Segoe UI', sans-serif; }
+        canvas { touch-action: none; }
+        #game-container { position: fixed; inset: 0; z-index: 0; }
+        #ui-root {
+            position: fixed; inset: 0; z-index: 30; pointer-events: none;
+        }
+        #auth-panel, #shop-panel, #auth-overlay {
+            pointer-events: auto;
+        }
+        #auth-overlay {
+            position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: rgba(2, 4, 12, 0.8); backdrop-filter: blur(8px); z-index: 55;
+        }
+        #auth-overlay.hidden, #pay-modal.hidden { display: none !important; }
+        #auth-card {
+            width: min(92vw, 460px); background: rgba(10, 16, 30, 0.92);
+            border: 1px solid rgba(120, 170, 255, 0.35); border-radius: 18px;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+            padding: 24px 22px 18px; color: #edf4ff;
+        }
+        .brand { text-align: center; font-size: 12px; letter-spacing: 0.22em; color: #79d7ff; text-transform: uppercase; }
+        .title { text-align: center; font-size: 32px; font-weight: 800; margin: 12px 0 8px; }
+        .subtitle { text-align: center; color: #aab7d3; font-size: 14px; margin-bottom: 18px; }
+        .auth-box { display: grid; gap: 12px; }
+        .auth-box label { display: grid; gap: 6px; font-size: 13px; color: #cfe1ff; }
+        .auth-box input {
+            width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid rgba(142, 172, 255, 0.5);
+            background: rgba(8, 14, 26, 0.9); color: #fff; padding: 12px 14px; font-size: 15px;
+        }
+        .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .auth-status { min-height: 18px; color: #ffb4b4; font-size: 12px; text-align: center; }
+        button {
+            border: none; border-radius: 10px; padding: 12px 16px; font-weight: 700; cursor: pointer;
+            transition: transform 0.12s ease, opacity 0.12s ease;
+        }
+        button:hover { transform: translateY(-1px); }
+        .primary-btn { background: linear-gradient(135deg, #2fd5ff, #1b7fff); color: #05111d; }
+        .secondary-btn { background: rgba(126, 138, 176, 0.18); color: #edf4ff; border: 1px solid rgba(255,255,255,0.08); }
+        .demo-note { margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 185, 0, 0.08); color: #ffd260; text-align: center; font-size: 12px; }
+        #auth-panel { display: none; }
+        #shop-panel {
+            display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            width: min(420px, calc(100vw - 32px)); max-height: min(82vh, 620px); overflow-y: auto;
+            pointer-events: auto; color: #fff; font-family: 'Segoe UI', sans-serif; z-index: 50;
+        }
+        #shop-panel.open { display: block; }
+        .card {
+            background: rgba(8, 12, 22, 0.74); border: 1px solid rgba(128, 164, 255, 0.28);
+            border-radius: 14px; padding: 14px 14px 12px; box-shadow: 0 12px 26px rgba(0,0,0,0.15);
+        }
+        .user-bar {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; font-weight: 700;
+        }
+        .diamond-pill {
+            display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+            background: rgba(44, 151, 255, 0.18); color: #9de3ff; border: 1px solid rgba(90, 175, 255, 0.3);
+        }
+        .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .shop-close { padding: 5px 9px; font-size: 14px; }
+        .shop-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+        .pack-btn {
+            background: linear-gradient(180deg, #112847, #0d1c2e); border: 1px solid rgba(140, 194, 255, 0.32);
+            border-radius: 12px; color: #edf4ff; padding: 10px 8px; font-size: 13px;
+        }
+        .pack-btn .usd { font-size: 20px; font-weight: 800; display: inline-block; margin-bottom: 4px; }
+        .pack-btn .diam { font-size: 11px; color: #8de8ff; }
+        .bonus {
+            margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.03);
+            color: #bfd8ff; font-size: 12px; line-height: 1.4;
+        }
+        .inline-note { color: #8da3c9; font-size: 11px; margin-top: 8px; }
+        .shop-empty { color: #a8bad9; font-size: 12px; }
+        #hud-toolbar {
+            position: fixed; top: 14px; right: 14px; z-index: 100; display: flex;
+            gap: 10px; pointer-events: auto;
+        }
+        #modal-backdrop {
+            display: none; position: fixed; inset: 0; z-index: 45;
+            background: rgba(2, 6, 14, 0.45); backdrop-filter: blur(2px);
+            pointer-events: auto;
+        }
+        #modal-backdrop.show { display: block; }
+        .icon-btn {
+            width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center;
+            justify-content: center; font-size: 22px; line-height: 1;
+            background: rgba(8, 14, 26, 0.82); border: 1px solid rgba(128, 164, 255, 0.35);
+            color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+        }
+        .icon-btn:hover { transform: translateY(-1px); background: rgba(16, 26, 46, 0.95); }
+        .icon-btn:active { transform: translateY(0); }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+</head>
+<body>
+    <div id="game-container"></div>
+    <div id="ui-root">
+      <div id="auth-panel"></div>
+      <div id="shop-panel"></div>
+      <div id="hud-toolbar">
+        <button id="btn-friends" class="icon-btn" title="Friends">👥</button>
+        <button id="btn-sound" class="icon-btn" title="Sound">🔊</button>
+      </div>
+      <div id="modal-backdrop"></div>
+      <div id="auth-overlay">
+        <div id="auth-card">
+          <div class="brand">Stickman Shooter</div>
+          <div class="title">Login</div>
+          <div class="subtitle">Play only after you sign in. <a href="login.html" style="color:#64ddff">Open login page</a></div>
+          <div class="auth-box" id="auth-box"></div>
+          <div class="demo-note">Demo purchase mode: no real payment is processed.</div>
+        </div>
+      </div>
+    </div>
+        <script>
+            if (localStorage.getItem('token')) {
+                document.getElementById('auth-overlay').classList.add('hidden');
+            }
+        </script>
+    <script src="ui.js?v=20260903-standalone-pages"></script>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="game1.js?v=20260907-chars-maps"></script>
+</body>
+</html>

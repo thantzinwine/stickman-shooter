@@ -1,0 +1,47 @@
+# Render Blueprint — one-click deploy of the game + its PostgreSQL.
+# 1) Push this repo to GitHub (private recommended).
+# 2) In Render: New +  -> Blueprint  -> connect the repo.
+#    Render provisions the DB below and the web service automatically.
+# The game gets a permanent https://stickman-shooter.onrender.com URL.
+databases:
+  - name: stickman-db
+    plan: free                  # free Postgres expires 30 days; upgrade to $7 if you keep it
+    databaseName: stickman
+    user: stickman
+
+services:
+  - type: web
+    name: stickman-shooter
+    runtime: node
+    plan: free                  # sleeps after 15 min idle; cold start ~30 s
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # Online PvP is peer-to-peer over PeerJS (browser<->browser).
+      # Our server only handles auth + the shop, so these DB + secret
+      # vars are all it needs.
+      - key: PGHOST
+        fromDatabase:
+          name: stickman-db
+          property: host
+      - key: PGPORT
+        fromDatabase:
+          name: stickman-db
+          property: port
+      - key: PGUSER
+        fromDatabase:
+          name: stickman-db
+          property: user
+      - key: PGPASSWORD
+        fromDatabase:
+          name: stickman-db
+          property: password
+      - key: PGDATABASE
+        fromDatabase:
+          name: stickman-db
+          property: database
+      # Auto-generates a random SECRET on deploy (never committed).
+      - key: SECRET
+        generateValue: true
